@@ -1,55 +1,91 @@
-# PB-Net
-A Novel Deep Learning Approach for Within-Species and Cross-Species Protein Interaction Discovery and Prediction
+## PB-Net
+<img width="457" height="655" alt="model" src="https://github.com/JianwuPSC/PB-Net/blob/main/model/model_framework.png" />
 
+A Novel Deep Learning Approach for Protein Interaction Discovery and Prediction
 
-<img width="577" height="705" alt="未标题-1" src="https://github.com/user-attachments/assets/240f2a81-b5f5-42f8-932b-0403fd1e868a" />
+## Description
+PB-Net's core methodology centers on a 'binder-bridge' strategy. In this approach, a structural binder is computationally designed for a bait protein (ProtA) to simulate a potential interaction interface. Subsequent screening of a proteome identifies proteins (ProtB) exhibiting structural similarity to the designed binder, yielding a refined set of high-probability interaction candidates. These candidates, structured as ProtA-Binder-ProtB items, are classified by the Item Filter Model (IFM). The IFM integrates sequence, structure, and quality features through pre-trained protein language models, including ESM2 and Saprot.
 
-# 1 Install Model to inference
-# Install RFdiffusion
-https://github.com/RosettaCommons/RFdiffusion
-# Install dl_binder_design (ProteinMPNN, AF2)
-https://github.com/nrbennet/dl_binder_design
-# Install foldseek
-https://github.com/steineggerlab/foldseek
-# Install ESM,Saprot
-https://github.com/evolutionaryscale/esm?tab=readme-ov-file
-https://github.com/evolutionaryscale/esm?tab=readme-ov-file
+## 1. Getting started / installation
+PB-Net relies on binder design and screening, and extracts features through protein language models, thus requiring the installation of the following models prior to use.
 
-# 2 Binder design and identification framework
-# (1) binder design use list
-    bach Sac_baker_rfdiff.sh --input example.list --output out_file --rfdiff_path ~/run_inference.py --pdb_path pdb_file
-# or single example
-    python /home/wuj/data/tools/RFdiffusion/scripts/run_inference.py inference.output_prefix=rfdiffusion_out inference.input_pdb=target_pdb 'contigmap.contigs=[Astart-end}/0 50-70]'  inference.num_designs=10 denoiser.noise_scale_ca=0 denoiser.noise_scale_frame=0
-# (2) binder sequence 
-    mkdir -p dl_mpnn_out/Entry; cd dl_mpnn_out/Entry
-    CUDA_VISIBLE_DEVICES=1 ~/silent_tools/silentfrompdbs rfdiffusion_out/*/*pdb > dl_mpnn_out/Entry/Entry.silent
-    CUDA_VISIBLE_DEVICES=1 ~/dl_binder_design/mpnn_fr/dl_interface_design.py -silent dl_mpnn_out/Entry/Entry.silent -relax_cycles 0 -seqs_per_struct 6 -outsilent dl_mpnn_out/Entry/Entry_dlmpnn.silent
-    CUDA_VISIBLE_DEVICES=1 ~/silent_tools/silentextract dl_mpnn_out/Entry/Entry_dlmpnn.silent
-    grep 'ANNOTATED_SEQUENCE' dl_mpnn_out/Entry/Entry_dlmpnn.silent|awk '{print $3"\t"$2}'|sed 's/\[/\t/g'|awk '{print ">"$1"\n"$2}' > dl_mpnn_out/Entry/Entry_dlmpnn.fa
-    python dataprocess/mpnnseq_rename.py dl_mpnn_out/Entry/Entry_dlmpnn.fa dl_mpnn_out/Entry/Entry_rename_dlmpnn.fa Entry_
-# (3) binder quality varify 
-    mkdir -p dl_af2_out/Entry;cd dl_af2_out/Entry
-    CUDA_VISIBLE_DEVICES=1 ~/dl_binder_design/af2_initial_guess/predict.py -silent dl_mpnn_out/Entry/Entry_dlmpnn.silent -paramdir AF2/Reduced_dbs -model_names model_1_ptm -outsilent dl_af2_out/Entry/Entry_af2.silent -scorefilename dl_af2_out/Entry/Entry_af2.score
-    ~/silent_tools/silentextract dl_af2_out/Entry/Entry_af2.silent
-    python dl_design_example/pdb_contact_map_12A_list.py dl_af2_out/Entry dl_af2_out/Entry/Entry_af2_contact.txt Entry
-    sed '/description/d' dl_af2_out/Entry/Entry_af2.score|awk '{print $11"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9}'|awk 'NR==FNR{a[$1]=$0;next}{if(a[$1]){print a[$1]"\t"$0}}' - dl_af2_out/Entry/Entry_af2_contact.txt|awk '{print "Entry_"$1"\t"$11"\t"$13"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9}' > dl_af2_out/Entry/Entry_af2_quality.txt
-# (4) foldseek search and filter
-binder quality filter : Total PLDDT > 70 & Interface PAE < 25
-
-    foldseek createdb AFDB_species species_foldseek_DB/species_foldseek_DB
-    foldseek easy-cluster example/ res tmp -c 0.9
-    foldseek easy-search Entry_1-50_12_dldesign_2_af2pred.pdb ~/species_foldseek_DB/species_foldseek_DB foldseek_out/Entry_foldseek.txt foldseek_out/Entry_tmp --num-iterations 3 --format-output query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,prob,lddt,alntmscore,qtmscore,ttmscore,u,t --threads 10
+Install RFdiffusion
+    https://github.com/RosettaCommons/RFdiffusion
     
-foldseek result filter : bits scores > 60
-# 2 Item Filter Model
-# (1) protein embedding (proteinA, Binder, proteinB)
-item_sample.txt : like,  Q9LFV3_120-378_1_dldesign_2_18-58_A0A0A7EPL0_59-98	 null,  output including : proteinA esm embedding, Binder esm embedding, proteinB esm embedding, proteinA saprot embedding, Binder saprot embedding, proteinB saprot embedding
-
-    CUDA_LAUNCH_BLOCKING=2 python dataprocess/PLM_embedding_to_csv.py genome_unipro_no-uniq_protein.fasta Binder_seqs.fasta AFDB_species/ Binder_PDB_chainA/ iterm_sample.txt 
-    iterm_foldseek_embedding/ cuda:2
-# (2) PPI prediction
-    # training
+Install dl_binder_design (ProteinMPNN, AF2)
+    https://github.com/nrbennet/dl_binder_design
     
-inference  class 0 : PPI true, class 1 : PPI false, Possibility=0.5, means, values greater than 0.5 are set as class 0. ​A higher predicted score (ranging from 0 to 1) indicates a greater likelihood that the pair interacts.​
+Install foldseek
+    https://github.com/steineggerlab/foldseek
+    
+Install ESM,Saprot
+    https://github.com/evolutionaryscale/esm?tab=readme-ov-file
+    https://github.com/westlake-repl/SaProt
+### Install PB-Net
+    git clone https://github.com/JianwuPSC/PB-Net.git
+## 2. Binder design and identification framework
+### (1) Binder design 
+Binders are generated from a query list using RFdiffusion. For specific implementation details, please refer to the RFdiffusion documentation.
 
-    python PLM_MLP_test.py protA_esm_embedding.csv binder_esm_embedding.csv protB_esm_embedding.csv protA_saprot_embedding.csv binder_saprot_embedding.csv protB_saprot_embedding.csv model.pt out_file
+    bash Sac_baker_rfdiff.sh --input query.list --output out_file --rfdiff_path RFdiffusion_path/run_inference.py --pdb_path pdb_file
+    
+Based on a specified reigon, a binder is generated utilizing the RFdiffusion
+
+    python ~/RFdiffusion/scripts/run_inference.py inference.output_prefix=rfdiffusion_out inference.input_pdb=target_pdb 'contigmap.contigs=[A1-20}/0 50-70]'  inference.num_designs=10 denoiser.noise_scale_ca=0 denoiser.noise_scale_frame=0
+    
+### (2) Binder sequence generated
+The process involves utilizing the ProteinMPNN module within the dl_binder_design framework to generate amino acid sequences for binder proteins. All target binder structures in PDB format are converted into silent format to optimize computational efficiency and standardize input handling
+
+    ~/silent_tools/silentfrompdbs rfdiffusion_out/*pdb > Entry.silent
+    ~/dl_binder_design/mpnn_fr/dl_interface_design.py -silent Entry.silent -relax_cycles 0 -seqs_per_struct 6 -outsilent Entry_dlmpnn.silent
+    ~/silent_tools/silentextract Entry_dlmpnn.silent
+    
+The protein sequences generated by ProteinMPNN are extracted directly from the silent format and can be utilized for subsequent feature generation.
+
+    grep 'ANNOTATED_SEQUENCE' Entry_dlmpnn.silent|awk '{print $3"\t"$2}'|sed 's/\[/\t/g'|awk '{print ">"$1"\n"$2}' > Entry_dlmpnn.fa
+    python dataprocess/mpnnseq_rename.py Entry_dlmpnn.fa Entry_rename_dlmpnn.fa Entry_
+    
+### (3) Binder quality validation
+The process involves utilizing AlphaFold 2 (AF2) within the dl_binder_design framework to assess multiple interaction metrics between computationally designed binders and their query regions. These metrics serve as critical quality benchmarks for evaluating the generated binders. The entire workflow operates with input structures provided in the silent format to streamline data handling and computational efficiency. The assessment yielded 8 key feature values, including binder predicted aligned error (PAE), binder root-mean-square deviation (RMSD), interaction PAE, query PAE, binder pLDDT, query pLDDT, total pLDDT, and query RMSD
+
+    ~/dl_binder_design/af2_initial_guess/predict.py -silent Entry_dlmpnn.silent -paramdir AF2/Reduced_dbs -model_names model_1_ptm -outsilent Entry_af2.silent -scorefilename Entry_af2.score
+    ~/silent_tools/silentextract Entry_af2.silent
+    
+Additionally, the following structural metrics are calculated to assess the interaction quality between Protein A and the binder. The nearest Euclidean distance of Cα atoms between the Protein A and binder chains. (nearest residue distance). The count of residue pairs with Cα Euclidean distances less than 8 Å (residue counts <8 Å)
+
+    python dataprocess/pdb_contact_map_12A_list.py ./pdb_path Entry_af2_contact.txt Entry
+    sed '/description/d' Entry_af2.score|awk '{print $11"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9}'|awk 'NR==FNR{a[$1]=$0;next}{if(a[$1]){print a[$1]"\t"$0}}' - Entry_af2_contact.txt|awk '{print "Entry_"$1"\t"$11"\t"$13"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9}' > Entry_af2_quality.txt
+    
+### (4) Putative interacting protein screening
+The process begins by applying a binder quality filter with the criteria: Total PLDDT > 70 and Interface PAE < 25, to screen binders and select high-quality candidates.
+
+Generated high-quality binders undergo deduplication using Foldseek to remove redundant structural variants.
+
+    foldseek easy-cluster dl_binder_design_output_path/ res tmp -c 0.9
+
+Create a Foldseek dataset for the candidate proteome.
+
+    foldseek createdb AFDB_species ~/species_foldseek_DB/species_foldseek_DB
+    
+The process involves using Foldseek to search for proteins structurally similar to the designed binder within a pre-constructed Foldseek proteome database (bits scores > 60). These identified proteins serve as candidate interacting partners (ProtB), ultimately enabling the construction of ProtA-Binder-ProtB interaction items.  
+
+    foldseek easy-search Entry_1-50_12_dldesign_2_af2pred.pdb ~/species_foldseek_DB/species_foldseek_DB Entry_foldseek.txt Entry_tmp --num-iterations 3 --format-output query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,prob,lddt,alntmscore,qtmscore,ttmscore,u,t --threads 10
+
+### ProtA-Binder-ProtB item construction
+In the file `item_sample.txt`, the example entry `Q9LFV3_120-378_1_dldesign_2_18-58_A0A0A7EPL0_59-98 0` demonstrates the complete workflow for constructing a ProtA-Binder-ProtB item. First, the 120-378 amino acid region of the Q9LFV3 protein (ProtA) is used as a query input to computationally design the binder structure `Q9LFV3_120-378_1_dldesign_2.pdb`. Subsequently, Foldseek performs structural alignment, mapping residues 18-58 of the binder to the 59-98 region of the candidate interaction protein A0A0A7EPL0 (ProtB), thereby identifying potential high-affinity binding pairs. 
+
+## 3. Item Filter Model (IFM)
+### (1) Protein embedding (proteinA, Binder, proteinB)
+To gain deeper insights into the interaction mechanism, the sequence features of ProtA, the binder, and ProtB are separately embedded and characterized using two protein language models, ESM2 and Saprot. This process ultimately generates six key types of feature vectors—including ESM2 embeddings for ProtA, the binder, and ProtB, as well as their corresponding Saprot embeddings. These embeddings integrate evolutionary information from sequences and structure-aware features.
+
+    python dataprocess/PLM_embedding_to_csv.py protein.fa Entry_dlmpnn.fa AFDB_PDB/ Binder_PDB/ iterm_sample.txt Esm2_Saprot_embedding/ cuda:0
+
+### (2) IFM training
+The model was trained on a dataset of 14,331 items and tested on a set of 1,480 items. The dataset was partitioned in a manner consistent with the standard practice for PPI prediction to prevent data leakage. The SMOTE was applied to augment the minority class samples
+
+    python model/PLM_MLP_training.py --protA_esm_train_path=protA_esm2_train.csv --protA_esm_valid_path=protA_esm2_valid.csv --protA_esm_test_path=protA_esm2_test.csv --binder_esm_train_path=binder_esm2_train.csv --binder_esm_valid_path=binder_esm2_valid.csv --binder_esm_test_path=binder_esm2_test.csv  --protB_esm_train_path=protB_esm2_train.csv --protB_esm_valid_path=protB_esm2_valid.csv --protB_esm_test_path=protB_esm2_test.csv --protA_saprot_train_path=protA_saprot_train.csv --protA_saprot_valid_path=protA_saprot_valid.csv --protA_saprot_test_path=protA_saprot_test.csv --binder_saprot_train_path=binder_saprot_train.csv --binder_saprot_valid_path=binder_saprot_valid.csv --binder_saprot_test_path=binder_saprot_test.csv  --protB_saprot_train_path=protB_saprot_train.csv --protB_saprot_valid_path=protB_saprot_valid.csv --protB_saprot_test_path=protB_saprot_test.csv 
+### (3) PPI prediction
+In this IFM, the model performs binary classification where class 0 represents a true interaction (PPI positive) and class 1 indicates a false interaction (PPI negative). The classification threshold is set at 0.5: predicted probability scores greater than 0.5 are assigned to class 0 (interacting pairs), while scores below 0.5 are classified as non-interacting pairs (class 1). The model outputs a continuous probability score ranging from 0 to 1, where higher values correspond to increased confidence in the predicted interaction. 
+
+    python PLM_MLP_test.py protA_esm_embedding.csv binder_esm_embedding.csv protB_esm_embedding.csv protA_saprot_embedding.csv binder_saprot_embedding.csv protB_saprot_embedding.csv model/simple_mlp.pth out_file
+
