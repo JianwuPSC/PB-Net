@@ -88,20 +88,4 @@ The model was trained on a dataset of 14,331 items and tested on a set of 1,480 
 ### (3) PPI prediction
 In this IFM, the model performs binary classification where class 0 represents a true interaction (PPI positive) and class 1 indicates a false interaction (PPI negative). The classification threshold is set at 0.5: predicted probability scores greater than 0.5 are assigned to class 0 (interacting pairs), while scores below 0.5 are classified as non-interacting pairs (class 1). The model outputs a continuous probability score ranging from 0 to 1, where higher values correspond to increased confidence in the predicted interaction. 
 
-    python model/PB-Net_item_test.py \
-  --test_source_esm A0A7U7JE37_foldseek_embedding/esm_represent_soucer_df.csv \
-  --test_binder_esm A0A7U7JE37_foldseek_embedding/esm_represent_binder_df.csv \
-  --test_target_esm A0A7U7JE37_foldseek_embedding/esm_represent_target_df.csv \
-  --test_source_saprot A0A7U7JE37_foldseek_embedding/sapro_represent_soucer_df.csv \
-  --test_binder_saprot A0A7U7JE37_foldseek_embedding/sapro_represent_binder_df.csv \
-  --test_target_saprot A0A7U7JE37_foldseek_embedding/sapro_represent_target_df.csv \
-  --model_path  model/IFM/IFM.pt \
-  --mode cat_saprot_source_binder_target_esm2_match_source_binder_target \
-  --batch_size 32 \
-  --output_csv A0A7U7JE37_cross_predictions.csv \
-  --with_labels \
-  --compute_pair_metrics \
-  --scaler_path model/IFM/scaler.pkl \
-  --manual_threshold 0.5 \
-  --seed 1
-
+    python model/PB-Net_item_test.py --test_source_esm A0A7U7JE37_foldseek_embedding/esm_represent_soucer_df.csv -test_binder_esm A0A7U7JE37_foldseek_embedding/esm_represent_binder_df.csv --test_target_esm A0A7U7JE37_foldseek_embedding/esm_represent_target_df.csv --test_source_saprot A0A7U7JE37_foldseek_embedding/sapro_represent_soucer_df.csv --test_binder_saprot A0A7U7JE37_foldseek_embedding/sapro_represent_binder_df.csv --test_target_saprot A0A7U7JE37_foldseek_embedding/sapro_represent_target_df.csv --model_path  model/IFM/IFM.pt --mode cat_saprot_source_binder_target_esm2_match_source_binder_target --batch_size 32 --output_csv A0A7U7JE37_cross_predictions.csv --with_labels --compute_pair_metrics --scaler_path model/IFM/scaler.pkl --manual_threshold 0.5 --seed 1
